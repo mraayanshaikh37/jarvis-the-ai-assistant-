@@ -74,7 +74,7 @@ body {
   border-top: 1px solid #b8860b;
 }
 
-.chat-input input {
+.chat-input textarea {
   flex: 1;
   padding: 14px;
   border: none;
@@ -123,10 +123,8 @@ body {
 
   <div class="chat-messages" id="messages"></div>
 
-  <div class="chat-input">
-    <input type="text" id="userInput" placeholder="Talk to JARVIS..." />
-    <button onclick="sendMessage()">Send</button>
-  </div>
+  <textarea id="userInput" rows="1" placeholder="Talk to JARVIS..."></textarea>
+<button onclick="sendMessage()">Send</button>
 </div>
 
 <script>
@@ -229,9 +227,12 @@ async function sendMessage() {
     addMessage("🤖 Connection error. Even geniuses need internet.", "bot");
   }
 }
-
-userInput.addEventListener("keypress", e => {
-  if (e.key === "Enter") sendMessage();
+userInput.addEventListener("keydown", function (e) {
+  // Ctrl + Enter = SEND
+  if (e.key === "Enter" && e.ctrlKey) {
+    e.preventDefault();
+    sendMessage();
+  }
 });
 
 window.onload = () => {
@@ -243,4 +244,5 @@ window.onload = () => {
 
 </body>
 </html>
+
 
