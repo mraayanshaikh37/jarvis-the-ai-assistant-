@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>JARVIS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+* { box-sizing: border-box; font-family: Arial, sans-serif; }
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at top, #330000, #000000);
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.chat-container {
+  width: 420px;
+  height: 620px;
+  background: #120000;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 0 40px rgba(255,0,0,0.3);
+  border: 2px solid #b8860b;
+}
+
+.chat-header {
+  background: linear-gradient(90deg, #7f1d1d, #b8860b);
+  padding: 16px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 20px;
+  letter-spacing: 2px;
+}
+
+.chat-messages {
+  flex: 1;
+  padding: 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.message {
+  margin-bottom: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  max-width: 80%;
+  line-height: 1.4;
+  font-size: 14px;
+}
+
+.user {
+  background: #b91c1c;
+  align-self: flex-end;
+}
+
+.bot {
+  background: #1f2937;
+  border: 1px solid #b8860b;
+  align-self: flex-start;
+}
+
+.typing { opacity: 0.6; font-style: italic; }
+
+.chat-input {
+  display: flex;
+  border-top: 1px solid #b8860b;
+}
+
+.chat-input input {
+  flex: 1;
+  padding: 14px;
+  border: none;
+  outline: none;
+  background: #0a0a0a;
+  color: white;
+}
+
+.chat-input button {
+  padding: 14px;
+  border: none;
+  cursor: pointer;
+  background: #b8860b;
+  color: black;
+  font-weight: bold;
+}
+
+.chat-input button:hover { background: #d4af37; }
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+  background: #0a0a0a;
+}
+
+.controls button {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  cursor: pointer;
+  background: #7f1d1d;
+  color: white;
+}
+</style>
+</head>
+
+<body>
+
+<div class="chat-container">
+  <div class="chat-header">🤖 JARVIS</div>
+
+  <div class="controls">
+    <button onclick="clearChat()">Clear</button>
+    <button onclick="showCommands()">Commands</button>
+  </div>
+
+  <div class="chat-messages" id="messages"></div>
+
+  <div class="chat-input">
+    <input type="text" id="userInput" placeholder="Talk to JARVIS..." />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+</div>
+
+<script>
+const API_KEY = "QBAOi3QEWO5MmQm619QawrcAH9Zq7UkI";
+const API_URL = "https://api.mistral.ai/v1/chat/completions";
+
+const messagesDiv = document.getElementById("messages");
+const userInput = document.getElementById("userInput");
+
+function addMessage(text, sender, typing=false) {
+  const msg = document.createElement("div");
+  msg.className = "message " + sender + (typing ? " typing" : "");
+  msg.innerText = text;
+  messagesDiv.appendChild(msg);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  saveMemory();
+  return msg;
+}
+
+function saveMemory() {
+  localStorage.setItem("jarvis_chat", messagesDiv.innerHTML);
+}
+
+function loadMemory() {
+  const mem = localStorage.getItem("jarvis_chat");
+  if (mem) messagesDiv.innerHTML = mem;
+}
+
+function clearChat() {
+  messagesDiv.innerHTML = "";
+  localStorage.removeItem("jarvis_chat");
+}
+
+function showCommands() {
+  addMessage("🧾 Commands:\n/ironman\n/joke\n/creator\n/clear", "bot");
+}
+
+function easterEggs(text) {
+  text = text.toLowerCase();
+
+  if (text === "/ironman")
+    return "I am not Tony Stark… but I do run on electricity and sarcasm.";
+
+  if (text === "/joke")
+    return "Why do programmers hate nature? Too many bugs.";
+
+  if (text === "/creator")
+    return "Created by a sleep-deprived human with ambition and Wi-Fi.";
+
+  if (text === "/clear") {
+    clearChat();
+    return "Memory wiped. Like my faith in humanity every Monday.";
+  }
+
+  if (text.includes("i love you"))
+    return "That is… statistically unnecessary, but appreciated.";
+
+  return null;
+}
+
+async function sendMessage() {
+  const text = userInput.value.trim();
+  if (!text) return;
+
+  addMessage("🧑 " + text, "user");
+  userInput.value = "";
+
+  const egg = easterEggs(text);
+  if (egg) {
+    addMessage("🤖 " + egg, "bot");
+    return;
+  }
+
+  const typing = addMessage("🤖 JARVIS is thinking...", "bot", true);
+
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + API_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "mistral-large-latest",
+        messages: [{ role: "user", content: text }]
+      })
+    });
+
+    const data = await response.json();
+    typing.remove();
+
+    const reply =
+      data.choices?.[0]?.message?.content ||
+      "I encountered a minor existential crisis.";
+
+    addMessage("🤖 " + reply, "bot");
+
+  } catch {
+    typing.remove();
+    addMessage("🤖 Connection error. Even geniuses need internet.", "bot");
+  }
+}
+
+userInput.addEventListener("keypress", e => {
+  if (e.key === "Enter") sendMessage();
+});
+
+window.onload = () => {
+  loadMemory();
+  if (!messagesDiv.innerHTML)
+    addMessage("🤖 Hello. I am JARVIS. Try /commands", "bot");
+};
+</script>
+
+</body>
+</html>
