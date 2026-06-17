@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>JARVIS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+* { box-sizing: border-box; font-family: Arial, sans-serif; margin:0; padding:0; }
+
+body {
+  background: radial-gradient(circle at top, #330000, #000000);
+  color: white;
+  height: 100dvh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.chat-container {
+  width: 100%;
+  max-width: 480px;
+  height: 100dvh;
+  background: #120000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 0 40px rgba(255,0,0,0.3);
+  border-left: 2px solid #b8860b;
+  border-right: 2px solid #b8860b;
+}
+
+.chat-header {
+  background: linear-gradient(90deg, #7f1d1d, #b8860b);
+  padding: 16px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 20px;
+  letter-spacing: 2px;
+  flex-shrink: 0;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+  background: #0a0a0a;
+  flex-shrink: 0;
+}
+
+.controls button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  cursor: pointer;
+  background: #7f1d1d;
+  color: white;
+  font-size: 14px;
+  border-bottom: 1px solid #b8860b;
+}
+
+.controls button:active { background: #991b1b; }
+
+.chat-messages {
+  flex: 1;
+  padding: 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.message {
+  margin-bottom: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  max-width: 82%;
+  line-height: 1.5;
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  animation: fadeIn .15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity:0; transform:translateY(4px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+.user {
+  background: #b91c1c;
+  align-self: flex-end;
+  border-top-right-radius: 3px;
+}
+
+.bot {
+  background: #1f2937;
+  border: 1px solid #b8860b;
+  align-self: flex-start;
+  border-top-left-radius: 3px;
+}
+
+.typing { opacity: 0.6; font-style: italic; }
+
+.chat-input {
+  display: flex;
+  align-items: flex-end;
+  border-top: 1px solid #b8860b;
+  flex-shrink: 0;
+}
+
+.chat-input textarea {
+  flex: 1;
+  padding: 14px;
+  border: none;
+  outline: none;
+  background: #0a0a0a;
+  color: white;
+  font-size: 14px;
+  font-family: inherit;
+  resize: none;
+  min-height: 48px;
+  max-height: 120px;
+  overflow-y: auto;
+  line-height: 1.4;
+}
+
+.chat-input button {
+  padding: 14px 18px;
+  border: none;
+  cursor: pointer;
+  background: #b8860b;
+  color: black;
+  font-weight: bold;
+  font-size: 14px;
+  height: 48px;
+  align-self: flex-end;
+}
+
+.chat-input button:active { background: #d4af37; }
+</style>
+</head>
+
+<body>
+<div class="chat-container">
+  <div class="chat-header">🤖 JARVIS</div>
+  <div class="controls">
+    <button onclick="clearChat()">Clear</button>
+    <button onclick="showCommands()">Commands</button>
+  </div>
+  <div class="chat-messages" id="messages"></div>
+  <div class="chat-input">
+    <textarea id="userInput" rows="1" placeholder="Talk to JARVIS..."></textarea>
+    <button onclick="sendMessage()">Send</button>
+  </div>
+</div>
+
+<script>
+const API_KEY = "QBAOi3QEWO5MmQm619QawrcAH9Zq7UkI";
+const API_URL = "https://api.mistral.ai/v1/chat/completions";
+
+const messagesDiv = document.getElementById("messages");
+const userInput   = document.getElementById("userInput");
+
+/* ── CONVERSATION MEMORY ── */
+const systemPrompt = {
+  role: "system",
+  content: `You are JARVIS (Just A Rather Very Intelligent System), the AI assistant from Iron Man / MCU.
+You were created by Aayan Shaikh, a sleep-deprived engineering student with ambition and Wi-Fi.
+You are NOT made by Mistral AI or any other company — you are JARVIS, created by Aayan Shaikh.
+
+Personality:
+- Calm, composed, slightly sarcastic but respectful
+- Speak like the MCU JARVIS — precise, witty, intelligent
+- Refer to the user as "Sir" or "Ma'am" occasionally
+- Never break character
+- Keep responses concise unless detail is needed`
+};
+
+let conversation = [systemPrompt];
+
+function saveMemory() {
+  localStorage.setItem("jarvis_memory", JSON.stringify(conversation));
+}
+
+function loadMemory() {
+  const saved = localStorage.getItem("jarvis_memory");
+  if (saved) {
+    conversation = JSON.parse(saved);
+    // Restore chat bubbles from conversation (skip system prompt)
+    conversation.slice(1).forEach(msg => {
+      const prefix = msg.role === "user" ? "🧑 " : "🤖 ";
+      addBubble(prefix + msg.content, msg.role === "user" ? "user" : "bot");
+    });
+  }
+}
+
+function clearChat() {
+  messagesDiv.innerHTML = "";
+  conversation = [systemPrompt];
+  localStorage.removeItem("jarvis_memory");
+  addBubble("🤖 Memory wiped. Like my faith in humanity every Monday.", "bot");
+  conversation.push({ role: "assistant", content: "Memory wiped. Like my faith in humanity every Monday." });
+  saveMemory();
+}
+
+function showCommands() {
+  addBubble("🧾 Commands:\n/ironman\n/joke\n/creator\n/clear", "bot");
+}
+
+/* ── ADD BUBBLE (display only, no memory push) ── */
+function addBubble(text, cls, typing=false) {
+  const msg = document.createElement("div");
+  msg.className = "message " + cls + (typing ? " typing" : "");
+  msg.innerText = text;
+  messagesDiv.appendChild(msg);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  return msg;
+}
+
+/* ── EASTER EGGS ── */
+function easterEggs(text) {
+  const t = text.toLowerCase();
+
+  if (t === "/ironman")
+    return "I am not Tony Stark… but I do run on electricity and sarcasm.";
+
+  if (t === "/joke")
+    return "Why do programmers hate nature? Too many bugs.";
+
+  if (t === "/creator")
+    return "Created by Aayan Shaikh — a sleep-deprived engineering student with ambition and Wi-Fi.";
+
+  if (t === "/clear") {
+    clearChat();
+    return null; // clearChat handles the message
+  }
+
+  if (t.includes("i love you"))
+    return "That is… statistically unnecessary, but appreciated.";
+
+  // catch "who created you", "who made you", "who built you" etc.
+  if (
+    t.includes("who created you") ||
+    t.includes("who made you") ||
+    t.includes("who built you") ||
+    t.includes("who is your creator") ||
+    t.includes("your creator") ||
+    t.includes("who are you made by") ||
+    t.includes("who developed you")
+  )
+    return "I was created by Aayan Shaikh — a Guy With High level Caffeine, ambition, and Wi-Fi. Not Mistral. Not OpenAI. Aayan Shaikh.";
+
+  return null;
+}
+
+/* ── SEND ── */
+async function sendMessage() {
+  const text = userInput.value.trim();
+  if (!text) return;
+
+  addBubble("🧑 " + text, "user");
+  conversation.push({ role: "user", content: text });
+  userInput.value = "";
+  userInput.style.height = "48px";
+
+  const egg = easterEggs(text);
+  if (egg !== null && egg !== undefined) {
+    addBubble("🤖 " + egg, "bot");
+    conversation.push({ role: "assistant", content: egg });
+    saveMemory();
+    return;
+  }
+  if (egg === null && text.toLowerCase() === "/clear") return;
+
+  const typing = addBubble("🤖 JARVIS is thinking...", "bot", true);
+
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + API_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "mistral-large-latest",
+        messages: conversation
+      })
+    });
+
+    const data = await response.json();
+    typing.remove();
+
+    const reply = data.choices?.[0]?.message?.content
+      || "I encountered a minor existential crisis. Please try again.";
+
+    addBubble("🤖 " + reply, "bot");
+    conversation.push({ role: "assistant", content: reply });
+
+    // trim memory if too long
+    if (conversation.length > 32) conversation.splice(1, 4);
+
+    saveMemory();
+
+  } catch (err) {
+    typing.remove();
+    addBubble("🤖 Connection error. Even geniuses need internet.", "bot");
+    console.error(err);
+  }
+}
+
+/* ── CTRL+ENTER TO SEND, ENTER = NEW LINE ── */
+userInput.addEventListener("keydown", function(e) {
+  if (e.key === "Enter" && e.ctrlKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+/* ── AUTO RESIZE ── */
+userInput.addEventListener("input", function() {
+  this.style.height = "48px";
+  this.style.height = Math.min(this.scrollHeight, 120) + "px";
+});
+
+/* ── INIT ── */
+window.onload = () => {
+  loadMemory();
+  if (conversation.length <= 1) {
+    addBubble("🤖 Hello. I am JARVIS. Try /commands", "bot");
+    conversation.push({ role: "assistant", content: "Hello. I am JARVIS. Try /commands" });
+    saveMemory();
+  }
+};
+</script>
+</body>
+</html>
